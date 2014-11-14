@@ -1,0 +1,7 @@
+;$Id$
+name = Drupal Custom Form
+description = This module is created to show drupal custom form element.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

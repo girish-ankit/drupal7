@@ -1,0 +1,69 @@
+<?php
+
+//$ID$
+
+/*
+ * Implemenation of hook_init();
+ */
+
+function custom_token_init() {
+    global $user;
+    drupal_set_message(token_replace('[test_token:bar_child]', array('user' => $user)));
+    drupal_set_message(token_replace('[site:custom]'));
+    //dpm(token_get_info());
+}
+
+/*
+ * hook_token_info()
+ */
+
+function custom_token_token_info() {
+    $info = array();
+    $info['types'] = array('test_token' => array('name' => t('dummy token test'), 'description' => t('Description of dummy token test'), 'data-needed' => 'user'));
+
+    $info['tokens']['test_token']['bar_child'] = array('name' => t('bar token name'), 'description' => t('This is my new bar token within the foo type description.'));
+    $info['tokens']['site']['custom'] = array('name' => t('site custom data title'), 'description' => t('This is description of my custom site toen data'));
+    return $info;
+}
+
+/*
+ * hook_tokens()
+ */
+
+function custom_token_tokens($type, $tokens, array $data = array(), array $options = array()) {
+    $replacements = array();
+
+    // The first thing that we're going to check for is the type of token - node,user etc...
+    if ($type == 'test_token' && !empty($data['user'])) {
+        $userData = $data['user'];
+        // Loop through each of the available tokens.
+        foreach ($tokens as $name => $original) {
+            // Find the desired token by name
+            switch ($name) {
+                case 'bar_child':
+                    $data = 'Hi <b>' . $userData->name . '</b> My custom data';
+
+                    $replacements[$original] = $data;
+                    break;
+            }
+        }
+    }
+
+
+    if ($type == 'site') {
+        // Loop through each of the available tokens.
+        foreach ($tokens as $name => $original) {
+            // Find the desired token by name
+            switch ($name) {
+                case 'custom':
+                    $data = 'Dummy site custom data';
+
+                    $replacements[$original] = $data;
+                    break;
+            }
+        }
+    }
+
+    // Return the replacements.
+    return $replacements;
+}

@@ -1,0 +1,7 @@
+;$Id$
+name = Custom nodeapi 
+description = This module is created for for demo of durpal 6 nodeapi hook in drupal 7.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

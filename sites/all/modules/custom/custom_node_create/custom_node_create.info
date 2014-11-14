@@ -1,0 +1,7 @@
+;$Id$
+name = Custom Node Create
+description = This module is created to show node creation via code.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

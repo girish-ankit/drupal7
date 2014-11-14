@@ -1,0 +1,9 @@
+;$Id$
+name = Custom Jquery
+description = This module is created for demo of jquery in drupal 7.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"
+
+scripts[] = custom_jquery.js

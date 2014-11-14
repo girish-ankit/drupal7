@@ -1,0 +1,36 @@
+<?php
+
+// $Id$
+/**
+ * @file
+ * This file is created to show custom pager creation in drupal.
+ * 
+ */
+
+/**
+ * Implementation of hook_menu()
+ */
+function custom_comment_create_menu() {
+    $items = array();
+    $items['custom-comment-create'] = array(
+        'title' => t('Custom Comment  Create'),
+        'page callback' => 'mycustom_comment_create',
+        'access arguments' => array('access content'),
+        'file' => 'inc/custom_comment_create.inc',
+        'type' => MENU_NORMAL_ITEM,
+    );
+    $items['custom-comment-update'] = array(
+        'title' => t('Custom Comment Update'),
+        'page callback' => 'mycustom_comment_update',
+        'access arguments' => array('access content'),
+        'file' => 'inc/custom_comment_update.inc',
+        'type' => MENU_NORMAL_ITEM,
+    );
+
+
+
+
+
+    return $items;
+}
+

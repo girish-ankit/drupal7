@@ -1,0 +1,95 @@
+<?php
+
+define('MULTIFORM_USER_REGISTRATION_LAST_STEP', 5);
+
+/*
+ * Implmentation hook_form_alter();
+ * 
+ */
+
+function custom_registration_multi_form_alter(&$form, &$form_state, $form_id) {
+    if ($form_id == 'user_register_form') {
+        print_r($form_state);
+        die();
+
+        $step = isset($form_state['storage']['step']) ? $form_state['storage']['step'] : 1;
+        $form['account']['name']['#default_value'] = !empty($form_state['storage']['name']) ? $form_state['storage']['name'] : '';
+        $form['account']['mail']['#default_value'] = !empty($form_state['storage']['mail']) ? $form_state['storage']['mail'] : '';
+        //$form['account']['pass']['#default_value'] = !empty($form_state['storage']['mail']) ? $form_state['storage']['mail'] : '';
+        $form['field_first_name']['#default_value'] = !empty($form_state['storage']['field_first_name']) ? $form_state['storage']['field_first_name'] : '';
+        $form['field_last_name']['#default_value'] = !empty($form_state['storage']['field_last_name']) ? $form_state['storage']['field_last_name'] : '';
+        if ($step > 1) { // Build Previous button only if past the first step
+            $form['actions']['previous'] = array(
+                '#type' => 'submit',
+                '#value' => t('Previous'),
+                '#submit' => array('multiform_node_form_previous', 'user_account_form'),
+                // -1 so that it appears before the "Next" button added later.
+                '#weight' => -1,
+                '#limit_validation_errors' => array(),
+            );
+        }
+        if ($step < MULTIFORM_USER_REGISTRATION_LAST_STEP) {
+            $form['actions']['next'] = array(
+                '#type' => 'submit',
+                '#value' => t('Next'),
+                '#submit' => array('multiform_node_form_next'),
+            );
+            unset($form['actions']['submit']);
+        }
+        $steps = multiform_node_form_by_step();
+        // print_r($steps); die();
+        foreach ($steps as $key => $step_current) {
+            drupal_set_message($step);
+            drupal_set_message($form['account']['mail']['#default_value']);
+            if ($step_current == $step) {
+                drupal_set_message($form['account']['name']['#default_value']);
+                if (isset($form['actions']['next'])) {
+                    drupal_set_message($form['account']['name']['#default_value']);
+                    $form['actions']['next']['#limit_validation_errors'][] = array($key);
+                }
+            } else {
+                // drupal_set_message($form['account']['name']['#default_value']);
+                $form[$key]['#access'] = FALSE;
+                $form['account'][$key]['#access'] = FALSE;
+            }
+        }
+    }
+}
+
+function multiform_node_form_by_step() {
+    static $steps = array(
+'name' => 1,
+ 'mail' => 2,
+ 'field_first_name' => 3,
+ 'field_last_name' => 4,
+ 'pass' => 5,
+    );
+    return $steps;
+}
+
+// Triggers the next button function.
+function multiform_node_form_next($form, &$form_state) {
+    $form_state['storage']['name'] = !empty($form_state['values']['name']) ? $form_state['values']['name'] : '';
+    $form_state['storage']['mail'] = !empty($form_state['values']['mail']) ? $form_state['values']['mail'] : '';
+    // $form_state['storage']['pass'] = !empty($form_state['values']['pass']) ? $form_state['values']['pass'] : '';
+    $form_state['storage']['field_first_name'] = !empty($form_state['values']['field_first_name']) ? $form_state['values']['field_first_name'] : '';
+    $form_state['storage']['field_last_name'] = !empty($form_state['values']['field_last_name']) ? $form_state['values']['field_last_name'] : '';
+
+    if (!isset($form_state['storage']['step'])) {
+        $form_state['storage']['step'] = 1;
+    }
+    if ($form_state['storage']['step'] == MULTIFORM_USER_REGISTRATION_LAST_STEP) {
+        $form_state['rebuild'] = FALSE;
+    } else {
+        $form_state['rebuild'] = TRUE;
+        $form_state['storage']['step']++;
+    }
+}
+
+// Triggers the previous button function
+
+function multiform_node_form_previous($form, &$form_state) {
+    $form_state['rebuild'] = TRUE;
+    $form_state['storage']['step']--;
+}
+

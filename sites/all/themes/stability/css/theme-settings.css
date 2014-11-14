@@ -1,0 +1,92 @@
+.form-item label {
+  display: block;
+}
+.form-type-checkbox label{
+  display: inline-block;
+}
+#edit-color input[type="radio"] {
+  display:none;
+}
+#edit-color .form-radios .form-item{
+  display: inline-block;
+}
+#edit-color .form-radios label {
+  display:inline-block;
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  text-indent: -9999px;
+}
+#edit-color input[type="radio"]:checked + label {
+  border: 2px solid #3d3d3d;
+}
+
+#edit-skin-asbestos + label {
+  background: #7f8c8d;
+}
+#edit-skin-blue + label {
+  background: #3498db;
+}
+#edit-skin-green + label {
+  background: #27ae60;
+}
+#edit-skin-orange + label {
+  background: #f39c12;
+}
+#edit-skin-red + label {
+  background: #dc2a0b;
+}
+#edit-skin-silver + label {
+  background: #bdc3c7;
+}
+#edit-skin-violet + label {
+  background: #9b59b6;
+}
+#edit-skin-yellow + label {
+  background: #f1c40f;
+}
+
+.form-item-layout .form-radios label {
+  width: auto !important;
+  text-indent: 0 !important;
+  background: #bdc3c7;
+  padding: 4px 12px 0 12px !important;
+  font-size: 15px !important;
+}
+
+#edit-pattern-brickwall + label {
+  background: url(../images/patterns/brickwall.png);
+}
+#edit-pattern-cream-pixels + label {
+  background: url(../images/patterns/cream_pixels.png);
+}
+#edit-pattern-grey-wash-wall + label {
+  background: url(../images/patterns/grey_wash_wall.png);
+}
+#edit-pattern-greyzz + label {
+  background: url(../images/patterns/greyzz.png);
+}
+#edit-pattern-mooning + label {
+  background: url(../images/patterns/mooning.png);
+}
+#edit-pattern-p5 + label {
+  background: url(../images/patterns/p5.png);
+}
+#edit-pattern-retina-wood + label {
+  background: url(../images/patterns/retina_wood.png);
+}
+#edit-pattern-shattered + label {
+  background: url(../images/patterns/shattered.png);
+}
+#edit-pattern-sos + label {
+  background: url(../images/patterns/sos.png);
+}
+#edit-pattern-squared-metal + label {
+  background: url(../images/patterns/squared_metal.png);
+}
+#edit-pattern-subtle-grunge + label {
+  background: url(../images/patterns/subtle_grunge.png);
+}
+#edit-pattern-binding-dark + label {
+  background: url(../images/patterns/binding_dark.png);
+}

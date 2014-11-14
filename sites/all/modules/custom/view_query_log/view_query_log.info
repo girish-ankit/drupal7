@@ -1,0 +1,7 @@
+;$Id$
+name = View Query Log
+description = This module is created to log query.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

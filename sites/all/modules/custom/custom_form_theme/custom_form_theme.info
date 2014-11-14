@@ -1,0 +1,7 @@
+;$Id$
+name = Custom form theme alter
+description = This module is created to alter form look and feel.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

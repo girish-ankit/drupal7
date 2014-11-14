@@ -1,0 +1,124 @@
+<?php
+
+// $Id$
+/**
+ * @file
+ * This file is created to show custom pager creation in drupal.
+ * 
+ */
+/* * *
+ * Created form to show drop down
+ * * */
+$view_arg = 0;
+
+function custom_data_views_form() {
+    global $view_arg;
+    $options = array();
+    $options [0] = t('Select Category');
+
+    $result = db_query("SELECT tid, name FROM {taxonomy_term_data} WHERE vid = :vid ORDER BY weight ASC, name;", array(':vid' => 14));
+    foreach ($result as $row) {
+        $options [$row->tid] = $row->name;
+    }
+
+    $form = array();
+    $form['selected'] = array(
+        '#type' => 'select',
+        '#title' => t(''),
+        '#options' => $options,
+        '#default_value' => $view_arg,
+    );
+    return $form;
+}
+
+function custom_send_output($view_name, $views_block, $view_arg) {
+    global $user;
+
+    $options = array('scope' => 'footer');
+    drupal_add_js(drupal_get_path('module', 'custom_views_data') . '/custom_views_data.js', $options);
+    $output = '';
+    $options = array('query' => drupal_get_destination());
+    $output .= render(drupal_get_form('custom_data_views_form'));
+    if (in_array('administrator', $user->roles)) {
+        $output .= '<p style="text-align:right; margin:0px; padding:0px;">' . l("edit views", "admin/structure/views/view/" . $view_name . "/edit/" . $views_block, $options) . "<p>";
+    }
+
+    if ($view_arg) {
+
+        $output .= views_embed_view($view_name, $views_block, $view_arg);
+    } else {
+        $output .= views_embed_view($view_name, $views_block);
+    }
+
+    return $output;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function custom_views_data_block_view($delta = '') {
+    global $view_arg;
+    if (isset($_GET['cat_id'])) {
+        if (is_numeric($_GET['cat_id'])) {
+            $view_arg = $_GET['cat_id'];
+        }
+    }
+    $block = array();
+
+    switch ($delta) {
+        case 'case_studies' :
+            $view_name = 'knowledge_share';
+            $views_block = 'case_studies';
+            $block['content'] = custom_send_output($view_name, $views_block, $view_arg);
+            break;
+        case 'whitepapers' :
+            $view_name = 'knowledge_share';
+            $views_block = 'block_3';
+            $block['content'] = custom_send_output($view_name, $views_block, $view_arg);
+            break;
+        case 'data_sheets' :
+            $view_name = 'knowledge_share';
+            $views_block = 'manual_guides';
+            $block['content'] = custom_send_output($view_name, $views_block, $view_arg);
+            break;
+        case 'brochures' :
+            $view_name = 'brochures';
+            $views_block = 'block';
+            $block['content'] = custom_send_output($view_name, $views_block, $view_arg);
+            break;
+        case 'thought_leadership' :
+            $view_name = 'thought_leadership';
+            $views_block = 'block_2';
+            $block['content'] = custom_send_output($view_name, $views_block, $view_arg);
+            break;
+    }
+
+    return $block;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function custom_views_data_block_info() {
+    $blocks = array();
+
+    $blocks['case_studies'] = array(
+        'info' => t('Knowledge share: Case studies views data '),
+    );
+    $blocks['whitepapers'] = array(
+        'info' => t('Knowledge share: White pappers views data '),
+    );
+    $blocks['data_sheets'] = array(
+        'info' => t('Knowledge share: Data Sheets views data '),
+    );
+    $blocks['brochures'] = array(
+        'info' => t('Knowledge share: Brochures views data '),
+    );
+    $blocks['thought_leadership'] = array(
+        'info' => t('Knowledge share: Thought Leadership views data '),
+    );
+
+
+    return $blocks;
+}
+

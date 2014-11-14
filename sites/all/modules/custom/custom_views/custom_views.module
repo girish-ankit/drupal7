@@ -1,0 +1,7 @@
+<?php
+
+// $Id$
+
+function custom_views_init() {
+    drupal_set_message('view data');
+}

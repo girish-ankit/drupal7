@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Stability Features feature.
+ */
+
+include_once 'stability_features.features.inc';

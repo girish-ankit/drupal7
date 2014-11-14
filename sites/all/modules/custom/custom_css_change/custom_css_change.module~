@@ -1,0 +1,29 @@
+<?php
+// $Id$
+/**
+*@file
+* This file is created to show custom pager creation in drupal.
+* 
+*/
+
+
+
+
+
+/**
+* Implementation of hook_menu()
+*/
+
+
+
+function custom_css_change_css_alter(&$css)
+{
+  global $theme_info, $base_theme_info;
+ // print_r($theme_info); die();
+  // Remove defaults.css file.
+//print_r($css); die();
+  unset($css[drupal_get_path('module', 'system') . '/defaults.css']);
+}
+
+
+

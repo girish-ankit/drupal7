@@ -1,0 +1,422 @@
+<?php
+/**
+ * @file
+ * Croninfinite | croning cron without cron.
+ *
+ * Croninfinite allows you to run cron just like a cron job -
+ * but completely without a cron job, a site visitor or a manual cron run.
+ */
+
+/**
+ * Croninfinite threshold types.
+ */
+define('CRONINFINITE_THRESHOLD_RULE', -2);
+define('CRONINFINITE_THRESHOLD_ADVANCED', -1);
+
+/**
+ * Determine wether Cronfinite is running.
+ *
+ * @return bool
+ *   Returns TRUE on success, FALSE otherwise.
+ */
+function croninfinite_status() {
+  // Check for Croninfinite lockfile.
+  $lockfile = croninfinite_lockfile();
+  if (!file_exists($lockfile)) {
+    return FALSE;
+  }
+  // Check time since last lockfile change (longer then 5 mins?).
+  return @file_get_contents($lockfile) + 5 >= (int) (time() / 60);
+}
+
+/**
+ * Start Croninfinite.
+ *
+ * @return bool
+ *   Returns TRUE on success, FALSE otherwise.
+ */
+function croninfinite_start() {
+  // Check if Croninfinite is already running.
+  if (croninfinite_status()) {
+    return FALSE;
+  }
+  // Generate token.
+  variable_set('croninfinite_token', sha1(drupal_random_bytes(9)));
+
+  // Create Croninfinite lockfile.
+  touch(croninfinite_lockfile());
+
+  // Send HTTP request to croninfinite.php script.
+  $result = drupal_http_request(
+    url(drupal_get_path('module', 'Croninfinite') . '/croninfinite.php',
+      array(
+        'query' => array(
+          // As the script does not use Drupal's bootstrap we have to
+          // pass all needed information to it by parameters.
+          'cron_key' => variable_get('cron_key'),
+          'token' => variable_get('croninfinite_token'),
+          'rule' => variable_get('croninfinite_rule', '0 * * * *'),
+          'max_execution_time' => variable_get('croninfinite_max_execution_time', 30),
+          'temporary_path' => variable_get('file_temporary_path') . DIRECTORY_SEPARATOR,
+          'drupal_base_path' => base_path(),
+          'drupal_root_path' => getcwd(),
+          'phase' => 'start',
+        ),
+        'absolute' => TRUE,
+      )
+    ),
+    array(
+      'method' => 'GET',
+      'headers' => array(
+        'Host' => $_SERVER['SERVER_NAME'],
+        'Connection' => 'Close',
+      ),
+    )
+  );
+
+  // Success for status code 200 (HTTP OK) or 1 (?) and lockfile was created.
+  if (($result->code == 200 || $result->code == 1) && croninfinite_status()) {
+    watchdog('croninfinite', 'Croninfinite was successfully started.');
+    return TRUE;
+  }
+  else {
+    watchdog('croninfinite', 'Croninfinite could not be started.', NULL, WATCHDOG_ERROR);
+    // Remove lockfile on error.
+    croninfinite_stop();
+    return FALSE;
+  }
+}
+
+/**
+ * Stop Cronfinite.
+ *
+ * @return bool
+ *   Returns TRUE on success, FALSE otherwise.
+ */
+function croninfinite_stop() {
+  // Check for Croninfinite lockfile.
+  $lockfile = croninfinite_lockfile();
+  if (! file_exists($lockfile)) {
+    return FALSE;
+  }
+  else {
+    // Delete Croninfinite lockfile.
+    if (drupal_unlink($lockfile)) {
+      watchdog('croninfinite', 'Croninfinite was successfully stopped.');
+      return TRUE;
+    }
+    else {
+      watchdog('croninfinite', 'Croninfinite could not be stopped.', NULL, WATCHDOG_ERROR);
+      return FALSE;
+    }
+  }
+}
+
+/**
+ * Implements hook_exit().
+ *
+ * We hook into the end of a page request in order to
+ * restart Croninfinite if it was killed for some reason.
+ */
+function croninfinite_exit() {
+  if (variable_get('croninfinite_autostart')) {
+    croninfinite_start();
+  }
+}
+
+/**
+ * Helper function for current lockfile location.
+ */
+function croninfinite_lockfile() {
+  return variable_get('file_temporary_path')
+    . DIRECTORY_SEPARATOR
+    . sha1(variable_get('cron_key')
+    . variable_get('croninfinite_token'))
+    . '.croninfinite.lock';
+}
+
+/**
+ * Submit callback; toggle Croninfinite.
+ *
+ * Start/Stop Croninfinite manually from Cron form.
+ */
+function croninfinite_toggle_submit($form, &$form_state) {
+  // Running -> Stop.
+  if (croninfinite_status()) {
+    if (croninfinite_stop()) {
+      drupal_set_message(t('Croninfinite stopped successfully.'));
+    }
+    else {
+      drupal_set_message(t('Failed to stop Croninfinite.'), 'error');
+    }
+    // Disable autorun (otherwise it won't be stopped)
+    variable_set('croninfinite_autostart', FALSE);
+  }
+  // Stopped -> Run.
+  else {
+    if (croninfinite_start()) {
+      drupal_set_message(t('Croninfinite started successfully.'));
+    }
+    else {
+      drupal_set_message(t('Croninfinite start failed.'), 'error');
+    }
+    // Set autorun option.
+    variable_set('croninfinite_autostart', isset($form_state['input']['croninfinite_autostart']));
+  }
+}
+
+/**
+ * Submit callback; save configuration.
+ */
+function croninfinite_save_configuration_submit($form, &$form_state) {
+  // Save some settings (The others will be saved by system_settings_form).
+  variable_set('croninfinite_autostart', @(bool) $form_state['input']['croninfinite_autostart']);
+
+  // Advanced timing was chosen -> we have to build the timing-rule.
+  if (variable_get('croninfinite_threshold') == CRONINFINITE_THRESHOLD_ADVANCED) {
+    $rule = variable_get('croninfinite_minute')
+      . ' ' . variable_get('croninfinite_hour')
+      . ' ' . variable_get('croninfinite_day')
+      . ' ' . variable_get('croninfinite_month')
+      . ' ' . variable_get('croninfinite_weekday');
+    variable_set('croninfinite_rule', $rule);
+  }
+  // Static threshold was chosen (threshold := rule).
+  elseif ((int) variable_get('croninfinite_threshold') == 0) {
+    variable_set('croninfinite_rule', variable_get('croninfinite_threshold'));
+  }
+  // Custom timing-rule.
+  else {
+    variable_set('croninfinite_rule', $form_state['input']['croninfinite_rule']);
+  }
+
+  // Warn user to restart Croninfinite to apply changes (if it's currently running).
+  if (croninfinite_status()) {
+    drupal_set_message(t('You have to restart Croninfinite to apply all changes.'), 'warning');
+  }
+}
+
+/**
+ * Submit validation; save configuration.
+ */
+function croninfinite_save_configuration_validation($form, &$form_state) {
+
+  // Validate max_execution_time setting.
+  if (!is_numeric(trim($form_state['input']['croninfinite_max_execution_time']))) {
+    form_set_error('croninfinite_max_execution_time', t('You must enter a valid value for max_execution_time.'));
+  }
+
+  // Validate rule syntax.
+  if ($form_state['input']['croninfinite_threshold'] == CRONINFINITE_THRESHOLD_RULE) {
+    // This monster tries to validate the rule syntax.
+    if (preg_match('/^((\*\/|)[0-9]{1,2}) (\*|(\*\/|)[0-9]{1,2}) (\*|([0-9]{1,2}-|)[0-9]{1,2}) (\*|([0-9]{1,2}-|)[0-9]{1,2}) (\*|([0-6]-|)[0-6])$/', $form_state['input']['croninfinite_rule']) === 0) {
+      form_set_error('croninfinite_rule', t('Invalid syntax of timing-rule.'));
+    }
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function croninfinite_form_system_cron_settings_alter(&$form, &$form_state, $form_id) {
+  // Add own submit callback for Croninfinite settings.
+  $form['#submit'][] = 'croninfinite_save_configuration_submit';
+  // Add own validation callback for Croninfinite settings.
+  $form['#validate'][] = 'croninfinite_save_configuration_validation';
+
+  // Remove cron fieldset.
+  unset($form['cron']);
+
+  // Add Croninfinite vertical tabs.
+  $form['croninfinite'] = array(
+    '#type' => 'vertical_tabs',
+    '#weight' => 0.003,
+  );
+
+  // Add general settings fieldset.
+  $form['croninfinite']['general'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Croninfinite'),
+  );
+  // Add croninfinite control button.
+  $form['croninfinite']['general']['croninfinite_control_button'] = array(
+    '#type' => 'submit',
+    '#submit' => array('croninfinite_toggle_submit'),
+  );
+  // Set caption of Start/Stop toggle button.
+  $form['croninfinite']['general']['croninfinite_control_button']['#value'] = croninfinite_status() ? t('Stop Croninfinite') : t('Start Croninfinite');
+
+  // Add autostart checkbox.
+  $form['croninfinite']['general']['croninfinite_autostart'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Start Croninfinite automatically'),
+    '#description' => t('This will restart Croninfinite automatically if it was stopped for some reason.'),
+    '#value' => variable_get('croninfinite_autostart', FALSE),
+  );
+
+  // Add cron time fieldset (Advanced threshold).
+  $form['croninfinite']['timing'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Cron timing'),
+  );
+
+  // Add croninfinite threshold.
+  $form['croninfinite']['timing']['croninfinite_threshold'] = array(
+    '#type' => 'select',
+    '#title' => t('Trigger cron'),
+    '#default_value' => variable_get('croninfinite_threshold', '0 * * * *'),
+    '#options' => array(
+      CRONINFINITE_THRESHOLD_RULE => t('Custom rule'),
+      CRONINFINITE_THRESHOLD_ADVANCED => t('Advanced'),
+      '0 * * * *' => t('every hour'),
+      '0 */3 * * *' => t('every 3 hours'),
+      '0 */6 * * *' => t('every 6 hours'),
+      '0 */12 * * *' => t('every 12 hours'),
+      '0 4 * * *' => t('daily'),
+      '0 4 * * 0' => t('weekly'),
+    ),
+    '#description' => t('Choose "Advanced" for enhanced timing options.'),
+  );
+
+  // Add hour select.
+  $form['croninfinite']['timing']['croninfinite_hour'] = array(
+    '#type' => 'select',
+    '#title' => t('Hour'),
+    '#default_value' => variable_get('croninfinite_hour', '*'),
+    '#options' => array(
+      '*/6' => t('every 6 hours'),
+      '*/3' => t('every 3 hours'),
+      '*' => t('hourly'),
+      0 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11, 12 => 12, 13 => 13, 14 => 14, 15 => 15, 16 => 16, 17 => 17, 18 => 18, 19 => 19, 20 => 20, 21 => 21, 22 => 22, 23 => 23,
+      ),
+    '#description' => t('Triggers on X hour or hourly'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_ADVANCED),
+      ),
+    ),
+  );
+  // Add minute select.
+  $form['croninfinite']['timing']['croninfinite_minute'] = array(
+    '#type' => 'select',
+    '#title' => t('Minute'),
+    '#default_value' => variable_get('croninfinite_minute', 0),
+    '#options' => array(
+      '*/45' => t('every 45 minutes'),
+      '*/30' => t('every 30 minutes'),
+      '*/20' => t('every 20 minutes'),
+      '*/15' => t('every 15 minutes'),
+      '*/10' => t('every 10 minutes'),
+      '*/5' => t('every 5 minutes'),
+      '*/1' => t('every minute'),
+      0 => 0, 5 => 5, 10 => 10, 15 => 15, 20 => 20, 25 => 25, 30 => 30, 35 => 35, 40 => 40, 45 => 45, 50 => 50, 55 => 50,
+    ),
+    '#description' => t('Triggers on X minute or every X minute'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_ADVANCED),
+      ),
+    ),
+  );
+  // Add day select.
+  $form['croninfinite']['timing']['croninfinite_day'] = array(
+    '#type' => 'select',
+    '#title' => t('Day'),
+    '#default_value' => variable_get('croninfinite_day', '*'),
+    '#options' => array(
+      '*' => t('daily'), 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11, 12 => 12, 13 => 13, 14 => 14, 15 => 15, 16 => 16, 17 => 17, 18 => 18, 19 => 19, 20 => 20,21 => 21, 22 => 22, 23 => 23, 24 => 24, 25 => 25, 26 => 26, 27 => 27, 28 => 28, 29 => 29, 30 => 30, 31 => 31),
+    '#description' => t('Triggers on day X or daily'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_ADVANCED),
+      ),
+    ),
+  );
+  // Add weekday select.
+  $form['croninfinite']['timing']['croninfinite_weekday'] = array(
+    '#type' => 'select',
+    '#title' => t('Weekday'),
+    '#default_value' => variable_get('croninfinite_weekday', '*'),
+    '#options' => array(
+      '*' => t('Any'),
+      0 => t('Sunday'),
+      1 => t('Monday'),
+      2 => t('Tuesday'),
+      3 => t('Wednesday'),
+      4 => t('Thursday'),
+      5 => t('Friday'),
+      6 => t('Saturday'),
+    ),
+    '#description' => t('Triggers on X weekday or on any weekday'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_ADVANCED),
+      ),
+    ),
+  );
+  // Add month select.
+  $form['croninfinite']['timing']['croninfinite_month'] = array(
+    '#type' => 'select',
+    '#title' => t('Month'),
+    '#default_value' => variable_get('croninfinite_month', '*'),
+    '#options' => array(
+      '*' => t('Any'),
+      1 => t('January'),
+      2 => t('February'),
+      3 => t('March'),
+      4 => t('April'),
+      5 => t('May'),
+      6 => t('June'),
+      7 => t('July'),
+      8 => t('August'),
+      9 => t('September'),
+      10 => t('October'),
+      11 => t('November'),
+      12 => t('December'),
+    ),
+    '#description' => t('Triggers on month X or on any month'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_ADVANCED),
+      ),
+    ),
+  );
+  // Add custom rule textfield.
+  $form['croninfinite']['timing']['croninfinite_rule'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Custom rule'),
+    '#description' => t('You can specify a custom timing-rule similar to real cron tab.') . '<br/>'
+      . t('Syntax/Format:')
+      . '<br/><i>[*/]#' . t('minute')
+      . '(0-59) [*/]#' . t('hour')
+      . '(0-23) [#-]#' . t('day')
+      . '(1-31) [#-]#' . t('month')
+      . '(1-12) [#-]#' . t('weekday')
+      . '(0-6)(' . t('Sunday')
+      . '=0)</i><br/>'
+      . t('Example for a hourly crontab: %example', array('%example' => '0 * * * *')) . '<br/>'
+      . t('Example for a crontab on every five minutes: %example', array('%example' => '*/5 * * * *')) . '<br/>'
+      . t('Example for a crontab on every monday to friday midnight: %example', array('%example' => '0 0 * * 1-5'))
+      . '<br/><strong>' . t('Attention: Incorrect formatted rules will not work.') . '</strong>',
+    '#value' => variable_get('croninfinite_rule', '0 * * * *'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="croninfinite_threshold"]' => array('value' => (string) CRONINFINITE_THRESHOLD_RULE),
+      ),
+    ),
+  );
+
+  // Add advanced fieldset.
+  $form['croninfinite']['settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Settings'),
+  );
+  // Add max_execution_time textfield.
+  $form['croninfinite']['settings']['croninfinite_max_execution_time'] = array(
+    '#type' => 'textfield',
+    '#title' => t('max_execution_time'),
+    '#description' => t('Value of maximum execution time for PHP scripts in seconds. Croninfinite tries to determine this by PHP configuration. In some cases this information is not available or not reliable and a default value of 30 seconds will be used. If you encounter problems running Croninfinite you should try to set a lower value.'),
+    '#value' => variable_get('croninfinite_max_execution_time', 30),
+    '#required' => TRUE,
+  );
+}

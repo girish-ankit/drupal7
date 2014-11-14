@@ -1,0 +1,60 @@
+<?php
+// $Id$
+/**
+*@file
+* This file is created to show custom pager creation in drupal.
+* 
+*/
+
+
+
+
+
+/**
+* Implementation of hook_perm()
+*
+*/
+
+function testing_perm()
+{
+	return array('test page test' => array('title'=> t('test page permission txt'), 'description'=> t('This is description')));
+}
+/**
+* Implementation of hook_menu()
+*/
+
+
+
+function testing_menu()
+{
+	$items = array();
+	$items['testing'] = array(
+                          'title' => t('Testing'),
+		                  'page callback' => 'group_sponsor_ad_show',
+				          'access arguments' => array('test page test'),
+				          'type' =>MENU_NORMAL_ITEM,
+		                  );
+
+	
+	
+	
+	return $items;
+}
+
+
+function group_sponsor_ad_show()
+{
+ 
+//return 'testing';  
+//return slider_data(); 
+
+//print_r(entity_get_info());
+
+print_r(entity_load('node'));
+
+ 
+
+}
+
+
+

@@ -1,0 +1,7 @@
+;$Id$
+name = Custom Database Query
+description = This module is created to show custom query function in database.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

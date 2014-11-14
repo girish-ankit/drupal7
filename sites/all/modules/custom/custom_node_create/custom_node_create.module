@@ -1,0 +1,36 @@
+<?php
+
+// $Id$
+/**
+ * @file
+ * This file is created to show custom pager creation in drupal.
+ * 
+ */
+
+/**
+ * Implementation of hook_menu()
+ */
+function custom_node_create_menu() {
+    $items = array();
+    $items['custom-node-create'] = array(
+        'title' => t('Custom Node  Create'),
+        'page callback' => 'mycustom_node_create',
+        'access arguments' => array('access content'),
+        'file' => 'inc/custom_node_create.inc',
+        'type' => MENU_NORMAL_ITEM,
+    );
+    $items['custom-node-update'] = array(
+        'title' => t('Custom Node Update'),
+        'page callback' => 'mycustom_node_update',
+        'access arguments' => array('access content'),
+        'file' => 'inc/custom_node_update.inc',
+        'type' => MENU_NORMAL_ITEM,
+    );
+
+
+
+
+
+    return $items;
+}
+

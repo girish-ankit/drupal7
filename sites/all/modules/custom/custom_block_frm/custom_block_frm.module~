@@ -1,0 +1,154 @@
+<?php
+// $Id$
+
+
+/**
+ * Implements hook_block_info().
+ */
+function custom_block_frm_block_info() {
+  $blocks = array();
+  $blocks['user_data'] = array(
+    'info' => t('User Data'),
+  );
+ 
+  return $blocks;
+}
+
+
+/**
+ * Implements hook_block_view().
+ */
+function custom_block_frm_block_view($delta='') {
+  $block = array();
+ 
+  switch($delta) {
+    case 'user_data' :
+      $block['content'] = user_data_view();
+      break;
+  }
+ 
+  return $block;
+}
+
+function user_data_view() {
+  $output = '';
+  $output = drupal_get_form('user_data_form');
+  return $output;
+}
+
+function user_data_form($form, &$form_state){
+ if (!isset($form_state['stage'])) $form_state['stage'] = 'first';
+   $form = array();
+   drupal_set_message($form_state['stage']);
+
+switch ($form_state['stage']) {
+    case 'first':
+      return first_form($form, $form_state);
+     break; 
+    case 'download': 
+      return download_form($form, $form_state);  
+     break;
+    default:
+      return first_form($form, $form_state);
+     break; 
+ }
+
+return $form;
+}
+
+function user_data_form_validate($form, &$form_state){
+switch ($form_state['stage']) { 
+ case 'first':
+      return first_validate($form, $form_state);
+     break;  
+ 
+    case 'download': 
+      return download_validate($form, $form_state);  
+     break;
+}
+}
+function user_data_form_submit($form, &$form_state){
+switch ($form_state['stage']) { 
+ case 'first':
+     first_submit($form, $form_state);
+     $form_state['new_stage'] = 'download';
+     break;  
+ 
+    case 'download': 
+      download_submit($form, $form_state);
+     $form_state['new_stage'] = 'first';
+     break;
+}
+
+ $form_state['stage'] = $form_state['new_stage'];
+  $form_state['rebuild'] = TRUE;
+}
+
+
+function first_form($form, &$form_state){
+
+ $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Name',
+     );
+  
+  $form['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email',
+     );
+ 
+  
+  $form['next'] = array(
+    '#type' => 'submit',
+    '#value' => t('Click')
+  );
+  
+  return $form;
+}
+
+function first_validate($form, &$form_state){
+
+ if (!$form_state['values']['name']) {
+form_set_error('name', 'Please enter name to continue');
+ }
+
+ if(!$form_state['values']['email']) {
+form_set_error('email', 'Please enter email to continue');
+ }
+
+}
+
+function first_submit($form, &$form_state){
+drupal_set_message('submit first');
+ $form_state['stage'] = 'download';
+}
+
+function download_form($form, &$form_state){
+ 
+
+$form['markup'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Deownload',
+     );
+ 
+  
+  $form['next'] = array(
+    '#type' => 'submit',
+    '#value' => t('Go Back')
+  );
+  
+  return $form;
+}
+
+function download_validate($form, &$form_state){
+drupal_set_message('Download validate');
+  if (!$form_state['values']['markup']) {
+form_set_error('name', 'Please enter name to download');
+ }
+}
+
+
+function download_submit($form, &$form_state){
+  drupal_set_message('Download submit');
+}
+ 

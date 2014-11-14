@@ -1,0 +1,472 @@
+<?php
+
+/**
+ * Implements hook_init().
+ */
+function stability_cms_init() {
+
+  if(in_array($_GET['q'], array('cart', 'cart/checkout')) && strpos($_SERVER['HTTP_HOST'], 'nikadevs') !== FALSE) {
+    $items = uc_cart_get_contents();
+    if(empty($items)) {
+      uc_cart_add_item(117, 1, NULL, NULL, FALSE);
+      uc_cart_add_item(118, 1, NULL, NULL, FALSE);
+    }
+  }
+
+  if($_GET['q'] == 'home/one-page') {
+    drupal_add_js(drupal_get_path('theme', 'stability') . '/vendor/jquery.queryloader2.js');
+    drupal_add_js(drupal_get_path('theme', 'stability') . '/vendor/jquery.scrollTo.min.js');
+    drupal_add_js(drupal_get_path('theme', 'stability') . '/js/one-page.js');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function stability_cms_menu() {
+  $items['home'] = array(
+    'title' => 'Welcome to ' . variable_get('site_name', ''),
+    'page callback' => 'stability_cms_home',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['home/*'] = array(
+    'title' => 'Welcome to ' . variable_get('site_name', ''),
+    'page callback' => 'stability_cms_home',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['page-404'] = array(
+    'title' => 'Page not Found',
+    'page callback' => 'stability_cms_404',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function stability_cms_home() {
+  if(theme_get_setting('home_title')) {
+    drupal_set_title(theme_get_setting('home_title'));
+  }
+  return '';
+}
+
+function stability_cms_404() {
+  $search_form_box = module_invoke('search', 'block_view');
+  return theme('stability_cms_404', array('search' => $search_form_box));
+}
+
+/**
+ * Implements hook_user_view_alter().
+ */
+function stability_cms_user_view_alter(&$build) {
+  $build['cms_profile'] = array(
+    '#prefix' => '<div class = "bbp-single-user-details">',
+    '#suffix' => '</div>',
+  );
+  $build['cms_profile']['user_avatar'] = array(
+    '#prefix' => '<div class = "bbp-user-avatar"><span class = "vcard">',
+    '#suffix' => '</span></div>',
+    '#markup' => strip_tags($build['user_picture']['#markup'], '<img><a>'),
+  );
+  $navigation = array(array('data' => '<a href = "#profile">' . t('Profile') . '</a>', 'class' => array('current')));
+  $statistic = '';
+  if(module_exists('forum')) {
+    $navigation[] = '<a href = "#topic_started">' . t('Topics Started') . '</a>';
+    $navigation[] = '<a href = "#replies_created">' . t('Replies Created') . '</a>';
+    $build['topic_started'] = array(
+      '#prefix' => '<div id = "topic_started" class = "tab"><h2>' . t('Topics Started') . '</h2>',
+      '#markup' => views_embed_view('topic_started', 'default', $build['#account']->uid),
+      '#suffix' => '</div>',
+      '#weight' => 90
+    );
+    $build['replies_created'] = array(
+      '#prefix' => '<div id = "replies_created" class = "tab"><h2>' . t('Replies Created') . '</h2>',
+      '#markup' => views_embed_view('replies_created', 'default', $build['#account']->uid),
+      '#suffix' => '</div>',
+      '#weight' => 90
+    );
+    $topic_count = db_select('node', 'n')->condition('n.uid', $build['#account']->uid)->condition('n.type', 'forum')->countQuery()->execute()->fetchField();
+    $query = db_select('comment', 'c')->condition('c.uid', $build['#account']->uid);
+    $query->leftJoin('node', 'n', 'n.nid = c.nid');
+    $comment_count = $query->condition('n.type', 'forum')->countQuery()->execute()->fetchField();
+    $statistic = '<p class="bbp-user-topic-count">' . t('Topics Started: @count', array('@count' => $topic_count)) .'</p><p class="bbp-user-reply-count">' . t('Replies Created: @count', array('@count' => $comment_count)) . '</p>';
+  }
+  $navigation_right = array('<a href = "#summary">' . t('Summary') . '</a>');
+  $build['cms_profile']['user_navigation'] = array(
+    '#prefix' => '<div class = "bbp-user-navigation"><div class = "row"><div class = "col-md-6">',
+    '#suffix' => '</div><div class = "col-md-6">' . theme('item_list', array('items' => $navigation_right)) . '</div></div></div>',
+    '#markup' => theme('item_list', array('items' => $navigation)),
+  );
+  $build['summary']['#prefix'] = '<div id = "summary" class = "tab"><h2>' . t('Summary') . '</h2>';
+  $build['summary']['#suffix'] = '</div>';
+  if(isset($build['field_profile'])) {
+    $build['profile_content'] = array(
+      '#prefix' => '<div id = "profile" class = "tab active"><h2>' . t('Profile') . '</h2><p>',
+      'profile' => $build['field_profile'],
+      '#suffix' => '</p>' . $statistic . '</div>',
+      '#weight' => 100
+    );
+  }
+  $build['summary']['#title'] = '';
+  unset($build['user_picture'], $build['field_profile']);
+  // Apply any extra added fields to Summary
+  foreach($build as $name => $field) {
+    if(strpos($name, 'field_') !== FALSE) {
+      $build['summary'][$name] = $field;
+      unset($build[$name]);
+    }
+  }
+  $build['#attached']['js'][] = drupal_get_path('theme', 'stability') . '/js/profile.js';
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function stability_cms_form_alter(&$form, &$form_state, $form_id) {
+  if($form_id == 'search_form') {
+    unset($form['basic']['keys']['#title'], $form['#attributes']);
+    $form['basic']['keys']['#prefix'] = '<div class = "row"><div class = "col-md-4 col-md-offset-4"><div class = "input-group">';
+    $form['basic']['keys']['#attributes']['placeholder'] = t('Search here...');
+    $form['basic']['keys']['#attributes']['class'] = array('form-control');
+    $form['basic']['submit']['#attributes']['class'] = array('btn btn-primary btn-icon');
+    $form['basic']['submit']['#value'] = decode_entities('&#xf002;');
+    $form['basic']['submit']['#prefix'] = '<div class = "input-group-btn">';
+    $form['basic']['submit']['#suffix'] = '</div></div></div></div>';
+  }
+  if($form_id == 'search_block_form') {
+    $form['search_block_form']['#prefix'] = '<div class = "input-group">';
+    $form['search_block_form']['#attributes']['placeholder'] = t('Search here...');
+    $form['search_block_form']['#attributes']['class'] = array('form-control');
+    $form['actions']['submit']['#attributes']['class'] = array('btn btn-primary btn-icon');
+    $form['actions']['submit']['#value'] = decode_entities('&#xf002;');
+    $form['actions']['submit']['#suffix'] = '</div>';
+  }
+  if($form['#id'] == 'comment-form') {
+    $form['author']['#prefix'] = '<div class = "row"><div class = "col-md-6">';
+    $form['comment_body']['#prefix'] = '</div></div>';
+    $form['actions']['submit']['#attributes']['class'] = array('btn-primary');
+    $form['actions']['submit']['#value'] = t('Send Comment');
+  }
+  if($form_id == 'contact_site_form') {
+    $form['#prefix'] = '<h2>' . t('Contact Form') . '</h2>';
+    $form['name']['#prefix'] = '<div class = "row"><div class = "col-md-4">';
+    $form['mail']['#prefix'] = '</div><div class = "col-md-4">';
+    $form['subject']['#prefix'] = '</div><div class = "col-md-4">';
+    $form['message']['#prefix'] = '</div></div>';
+    $form['#suffix'] = '<hr class="visible-sm visible-xs lg">';
+  }
+  if($form_id == 'uc_cart_view_form') {
+    $items_count = count(array_filter($form['items'], '_stability_cms_count_cart_items'));
+    $form['items']['#prefix'] = '<div class = "box">';
+    $form['items']['#weight'] = -10;
+    $form['items']['#prefix'] .= '<h3>' . t('You have @num item' . ($items_count == 1 ? '' : 's') . ' in your cart', array('@num' => $items_count)) . '</h3>';
+    $form['items']['#columns']['remove']['weight'] = 6;
+    $form['items']['#columns']['remove']['cell'] = '';
+    $form['items']['#columns']['total']['weight'] = 5;
+    $form['items']['#columns']['qty']['weight'] = 4;
+    $form['items']['#columns']['qty']['cell'] = t('Quantity');
+    $form['items']['#columns']['desc']['cell'] = t('Product');
+    $form['items']['#columns']['price'] = array(
+      'cell' => t('Price'), 
+      'weight' => 3
+    );
+    $form['items']['#columns']['image'] = array(
+      'cell' => '', 
+      'weight' => -1,
+    );
+    $form['update'] = $form['actions']['update'];
+    $form['update']['#weight'] = -5;
+    $form['update']['#prefix'] = '<div class = "text-right">';
+    $form['update']['#suffix'] = '</div></div><div class="spacer lg"></div>';
+    $form['actions']['checkout']['checkout']['#value'] = t('Proceed to Checkout') . ' →';
+    $form['actions']['checkout']['checkout']['#attributes']['class'] = array('btn-primary', 'btn', 'btn-lg');
+    unset($form['actions']['continue_shopping'], $form['actions']['update']);
+  }
+  if($form_id == 'uc_cart_checkout_form') {
+    foreach ($form['panes'] as $key => $pane) {
+      if (is_array($pane) && isset($pane['next'])) {
+        $form['panes'][$key]['next']['#attributes']['class'] = array('btn-primary');
+      }
+    }
+    $form['actions']['continue']['#attributes']['class'] = array('btn-primary', 'btn-lg');
+  }
+  if(in_array($form_id, array('user_login', 'user_register_form'))) {
+    $form['#prefix'] = '<div class = "box">';
+    $form['#suffix'] = '</div>';
+  }
+  if($form_id == 'blog_node_form') {
+    $form['field_video_iframe']['#states'] = array(
+      'visible' => array(
+        '.field-name-field-blog-type select' => array('value' => t('Video')),
+      )
+    );
+    $form['field_images']['#states'] = array(
+      'visible' => array(
+        '.field-name-field-blog-type select, .a' => array('!value' => t('Video')),
+        '.field-name-field-blog-type select, .ab' => array('!value' => t('Link')),
+        '.field-name-field-blog-type select, .abc' => array('!value' => t('Quote')),
+        '.field-name-field-blog-type select, .abd' => array('!value' => t('Audio')),
+        '.field-name-field-blog-type select, .abe' => array('!value' => t('Audio iFrame')),
+      )
+    );
+    $form['body']['#states'] = array(
+      'visible' => array(
+        '.field-name-field-blog-type select, .a' => array('!value' => t('Video')),
+        '.field-name-field-blog-type select, .ab' => array('!value' => t('Image')),
+        '.field-name-field-blog-type select, .abc' => array('!value' => t('Gallery')),
+        '.field-name-field-blog-type select, .abd' => array('!value' => t('Audio')),
+        '.field-name-field-blog-type select, .abe' => array('!value' => t('Audio iFrame')),
+      )
+    );
+    $form['field_audio']['#states'] = array(
+      'visible' => array(
+        '.field-name-field-blog-type select' => array('value' => t('Audio')),
+      )
+    );
+    $form['field_audio_iframe']['#states'] = array(
+      'visible' => array(
+        '.field-name-field-blog-type select' => array('value' => t('Audio iFrame')),
+      )
+    );
+  }
+}
+
+function _stability_cms_count_cart_items($val) {
+  return is_array($val) && isset($val['nid']);
+}
+/**
+ * Implements hook_tapir_table_alter().
+ */
+function stability_cms_tapir_table_alter(&$table, $table_id) {
+  if ($table_id == 'uc_cart_view_table') {
+    foreach (element_children($table) as $key) {
+      if (!empty($table['#parameters'][1][$key]['nid'])) {
+        $node = node_load($table['#parameters'][1][$key]['nid']['#value']);
+        $table[$key]['price'] = array(
+          '#markup' => theme('uc_product_price',array('element' => array('#value' => $node->sell_price))),
+        );
+        $table[$key]['image'] = array(
+          '#markup' => theme('image_style', array('style_name' => 'blog_60x60', 'path' => $node->uc_product_image[$node->language][0]['uri'])),
+        );
+        $table[$key]['remove']['#value'] = decode_entities('&#xf00d;');
+        $table[$key]['qty']['#attributes']['class'] = array('qty', 'text', 'input-text');
+        $table[$key]['qty']['#prefix'] = '<div class="quantity"><input type="button" value="-" class="minus">';
+        $table[$key]['qty']['#suffix'] = '<input type="button" value="+" class="plus"></div>';
+      }
+    }
+  }
+}
+
+function stability_cms_maintenance_form() {
+  $form['email'] = array(
+    '#type' => 'textfield',
+    '#prefix' => '<div class = "input-group">',
+    '#attributes' => array(
+      'placeholder' => t('Your Email...'),
+      'class' => array('form-control')
+    )
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => decode_entities('&#xf002;'),
+    '#attributes' => array('class' => array('btn btn-primary btn-icon')),
+    '#prefix' => '<div class = "input-group-btn">',
+    '#suffix' => '</div>',
+    '#submit' => array('stability_cms_maintenance_form_submit')
+  );
+  return $form;
+}
+
+function stability_cms_maintenance_form_submit(&$form, &$form_state) {
+  drupal_set_message('Thanks for your interest.');
+  drupal_mail('stability_cms', 'maintenance_subscriber', variable_get('site_mail', ''), language_default(), array('email' => $form_state['values']['email']), $form_state['values']['email']);
+}
+
+function stability_cms_mail($key, &$message, $params) {
+  switch($key) {
+    case 'maintenance_subscriber':
+      $langcode = $message['language']->language;
+      $message['subject'] = t('New subscriber from Coming Soon page: !site', array('!site' => variable_get('site_name')), array('langcode' => $langcode));
+      $message['body'][] = t("Email: !email", array('!email' => $params['email']), array('langcode' => $langcode));
+      break;
+  }
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function stability_cms_block_view_alter(&$data, $block) {
+  // Highglite the first letter in blocks subject
+  if (isset($data['subject'])) {
+    $data['subject'] = _stability_cms_block_title($data['subject']);
+  }
+}
+
+function _stability_cms_block_title($title) {
+  if (!empty($title)) {
+    $words = explode(' ', $title);
+    if (count($words) > 1 && strpos($title, '<span>') === FALSE) {
+      $word = array_shift($words);
+      $title = '<span>' . $word . '</span> ' . implode(' ', $words);
+    }
+  }
+  return $title;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function stability_cms_block_info() {
+  $blocks = array();
+  $blocks['flickr_block'] = array(
+    'info' => t('Flickr Block'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    'region' => 'footer',
+    'status' => 1
+  );
+  $blocks['contact_us'] = array(
+    'info' => t('Contact Us'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    'region' => 'footer',
+    'status' => 1
+  );
+  $blocks['contact_us_short'] = array(
+    'info' => t('Contact Us Short'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    'region' => 'footer',
+    'status' => 0
+  );
+  $blocks['gmap'] = array(
+    'info' => t('Google map'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    'region' => 'content_top',
+    'status' => 0
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implementation of hook_view().
+ */
+function stability_cms_block_view($delta) {
+  $block = array();
+  switch ($delta) {
+    case 'flickr_block':
+      $block = array('subject' => t('Flickr'), 'content' => '<div class = "widget_flickr"><ul id="flickr" class="flickr-feed"></ul></div>');
+      break;
+    case 'contact_us':
+      $block = array('subject' => t('Contact Us'), 'content' => theme('stability_cms_contact_us_block'));
+      break;
+    case 'contact_us_short':
+      $block = array('subject' => t('Contact Us'), 'content' => theme('stability_cms_contact_us_block', array('short' => TRUE)));
+      break;
+    case 'gmap':
+      drupal_add_js('http://maps.google.com/maps/api/js?sensor=true', array('external' => TRUE, 'cache' => FALSE));
+      drupal_add_js(drupal_get_path('theme', 'stability') . '/vendor/jquery.gmap3.min.js');
+      drupal_add_js(drupal_get_path('theme', 'stability') . '/js/contact.js');
+      drupal_add_js(array('enjoyit_flat_theme' => array(
+          'gmap_lat' => theme_get_setting('gmap_lat'),
+          'gmap_lng' => theme_get_setting('gmap_lng'),
+          'gmap_zoom' => theme_get_setting('gmap_zoom')
+        )
+      ), 'setting');    
+      $block = array('subject' => '', 'content' => '<div class="googlemap-wrapper"><div id="map_canvas" class="map-canvas"></div></div>');
+      break;
+  }
+  return $block;
+}
+
+function _stability_parse_view($str) {
+  if (strpos($str, '[admin/structure/views/view') !== FALSE) {
+    $view_detail = substr($str, strpos($str, '['), strpos($str, ']') - strpos($str, '[') + 1);    
+    $view_name = substr($view_detail, strpos($view_detail, 'view/') + 5, -1);
+    $parts = explode('/', $view_name);
+    $view_name = $parts[0];
+    $view = isset($parts[2]) ? views_embed_view($view_name, $parts[2]) : views_embed_view($view_name);
+    $str = str_replace($view_detail, $view, $str);
+    // Run this function recursively so will go thorught every possible view description
+    $str = _stability_parse_view($str);
+  }
+  return $str;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function stability_cms_theme($existing, $type, $theme, $path) {
+  return array(
+    'stability_cms_404' => array(
+      'variables' => array('search' => NULL),
+    ),
+    'stability_cms_contact_us_block' => array(
+      'variables' => array('short' => FALSE),
+    ),
+  );
+}
+
+function stability_nikadevs_cms_shortcode_pricing_table_col($vars) {
+  global $pricing_table_cols;
+  $attrs = $vars['attrs'];
+  $text = $vars['text'];
+  if (!is_array($pricing_table_cols)) {
+    $pricing_table_cols = array();
+  }
+  global $pricing_table_rows;
+  $attrs = shortcode_attrs(array(
+      'title' => 'Basic',
+      'currency' => '$',
+      'link' => '<front>',
+      'button' => t('Buy now'),
+      'price' => '00',
+      'price_text' => '',
+      'class' => '',
+      'animation' => '',
+      'delay' => ''
+    ),
+    $attrs
+  );
+  $attrs['class'] .= ' plan';
+  $link = strpos($attrs['link'], '#') === FALSE ? url($attrs['link']) : $attrs['link'];
+  $btn_class = strpos($attrs['class'], 'popular') !== FALSE ? 'btn-primary' : 'btn-default';
+  $price = '<span class="price"><sup>' . $attrs['currency'] . '</sup> ' . $attrs['price'] . '</span><small>' . $attrs['price_text'] . '</small>';
+  $title = '<h3>' . $attrs['title'] . '</h3>';
+
+  if(strpos($attrs['class'], 'style2') !== FALSE || strpos($attrs['class'], 'style3') !== FALSE) {
+    $header = '
+      <div class="circled">
+        <div class="circled-inner">
+          ' . $price . '
+        </div>
+      </div>' . $title;
+    $btn_class = strpos($attrs['class'], 'style3') !== FALSE ? 'btn-default' : $btn_class;
+  }
+  elseif(strpos($attrs['class'], 'style4') !== FALSE) {
+    $header = $title .
+      '<div class="pricing-head-inner">
+        ' . $price . '
+      </div>';
+      $btn_class = 'btn-default';
+  }
+  else {
+    $header = $title . $price; 
+  }
+  $text = '<div ' . _nikadevs_cms_shortcode_attributes($attrs)  . '>
+    <header class="pricing-head">
+      ' . $header . '
+    </header>
+    <div class="pricing-body">
+      <ul>
+        ' . $pricing_table_rows . '
+      </ul>
+    </div>
+    <footer class="pricing-footer">
+      <a href="' . $link .  '" class="btn ' . $btn_class . '">' . $attrs['button'] . '</a>
+    </footer>
+  </div>';
+  $pricing_table_cols []= $text;
+  $pricing_table_rows = '';
+  return '';
+}

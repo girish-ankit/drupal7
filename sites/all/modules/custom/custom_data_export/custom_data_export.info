@@ -1,0 +1,7 @@
+;$Id$
+name = Custom data export
+description = This module is created for exportin data in csv formate.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

@@ -1,0 +1,54 @@
+<?php
+
+// $Id$
+/**
+ * @file
+ * This file is created to show custom pager creation in drupal.
+ * 
+ */
+
+/**
+ * Implementation of hook_menu()
+ */
+function custom_data_display_menu() {
+    $items = array();
+    $items['custom-data-display'] = array(
+        'title' => t('Custom Data Display'),
+        'page callback' => 'custom_data_display',
+        'access arguments' => array('access content'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+    return $items;
+}
+
+function custom_data_display() {
+
+    $name = 'Mobicules';
+
+    $nodeData = array();
+
+    $query = db_query("SELECT nid, title, created FROM {node} WHERE type = :type AND status = :status ORDER BY title", array(':type' => 'page', ':status' => 1));
+
+
+    foreach ($query as $row) {
+
+        $nodeData[] = array('title' => $row->title, 'nid' => $row->nid, 'created' => $row->created);
+    }
+
+    return theme('mera_data_display_function', array('nodeData' => $nodeData, 'developer' => $name));
+}
+
+/**
+ * Implemenation of hook_theme()
+ * */
+function custom_data_display_theme() {
+    $template = array();
+
+    $template['mera_data_display_function'] = array(
+        'variables' => array('nodeData' => NULL, 'developer' => NULl),
+        'template' => 'my-data-display',
+    );
+
+    return $template;
+}
+

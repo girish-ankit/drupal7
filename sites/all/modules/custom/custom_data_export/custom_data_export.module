@@ -1,0 +1,21 @@
+<?php
+
+// $Id$
+/**
+ * @file
+ * This file is created to export data in csv through views.
+ * 
+ */
+/*
+ *  Implementation of hook_cron()
+ */
+
+function custom_data_export_cron() {
+    drupal_set_message('custom_data_export_cron');
+// product data export 
+    $Output1 = views_embed_view('commerce_products', 'views_data_export_2');
+    file_unmanaged_save_data($Output1, 'sites/AS400/csdexport211', FILE_EXISTS_REPLACE);
+// order data export 
+    $Output2 = views_embed_view('order_export', 'views_data_export_1');
+    file_unmanaged_save_data($Output2, 'sites/AS400/hfile11', FILE_EXISTS_REPLACE);
+}

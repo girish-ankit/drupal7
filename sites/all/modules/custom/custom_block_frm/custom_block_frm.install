@@ -1,0 +1,65 @@
+<?php
+
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+
+function custom_block_frm_schema(){
+    
+   $schema['custom_download'] = array(
+  'description' => 'This table is created to store file download information',
+  'fields' => array(
+    'did' => array(
+      'description' => 'The primary identifier for download.',
+      'type' => 'serial',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+    ),
+    'name' => array(
+      'description' => 'The name of the client.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ),
+      
+    'email' => array(
+      'description' => 'The name of the client.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ),
+      
+   'time' => array(
+      'description' => 'The name of the client.',
+      'type' => 'int',
+      'length' => 11,
+      'not null' => TRUE,
+      
+    ),
+  ),
+  'primary key' => array('did'),
+  'indexes' => array(
+    'name' => array('name'),
+  ),
+);
+  
+ return $schema;
+}
+
+
+
+function custom_block_frm_install(){
+    
+}
+
+function custom_block_frm_uninstall(){
+    
+    variable_del('form_heading');
+    variable_del('download_heading');
+    variable_del('download_url');
+    
+}

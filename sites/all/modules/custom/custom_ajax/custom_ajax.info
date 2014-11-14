@@ -1,0 +1,7 @@
+;$Id$
+name = Custom ajax Call
+description = This module is created to load content via ajax.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+

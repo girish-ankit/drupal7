@@ -1,0 +1,473 @@
+<?php
+
+module_load_include('inc', 'nikadevs_cms', 'inc/nikadevs_cms');
+module_load_include('inc', 'nikadevs_cms', 'inc/nikadevs_cms_shortcodes');
+
+/**
+ * Implements hook_init().
+ *
+ */
+function nikadevs_cms_init() {
+  if (user_access('use nikadevs cms') && theme_get_setting('support', variable_get('theme_default', 'none'))) {
+    $module_path = drupal_get_path('module', 'nikadevs_cms');
+    drupal_add_js($module_path . '/support/js/html2canvas.js');
+    drupal_add_js($module_path . '/support/js/feedback.js');
+    drupal_add_css($module_path . '/support/css/feedback.css');
+    drupal_add_js(array('nikadevs_cms' => array('module_path' => $module_path, 'site_mail' => variable_get('site_mail', '') == '' ? 0 : 1)), 'setting');
+  }
+}
+
+function nikadevs_cms_layout_builder() {
+  drupal_add_library('system', 'ui.sortable');
+  drupal_add_library('system', 'ui.dialog');
+  drupal_add_css('//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css', 'external');
+
+  // Get all regions for current theme
+  $current_theme = variable_get('theme_default', 'none');
+  $themes = list_themes();
+  $theme = $themes[$current_theme];  
+  $regions = $theme->info['regions'];
+
+  // Get layouts for current theme
+  $layouts = variable_get('nikadevs_cms_layout_' . $current_theme, array(
+    'layout-default' => array(
+      'name' => t('Default'),
+      'pages' => '',
+      'rows' => array(
+        'id-0' => array(
+          'name' => t('Hidden') ,
+          'attributes' => array(
+            'id' => 'id-0',
+            'class' => array('sortable', 'row'))
+          )
+        )
+      )
+    )
+  );
+
+  //variable_set('builder_backup', $layouts);
+  //$layouts = variable_get('builder_backup', $layouts);
+  //variable_set('nikadevs_cms_layout_' . $current_theme, $layouts);
+
+  // Add new regions
+  foreach($regions as $key => $region) {
+    // Go throught every layout
+    foreach($layouts as $i => $layout ) {
+      // Assign new region to Hidden container
+      if(!isset($layouts[$i]['regions'][$key])) {
+        $layouts[$i]['regions'][$key] = array(
+          'row_id' => 'id-' . 0,
+          'name' => $region,
+          'attributes' => array(
+            'id' => $key
+          )
+        );
+      }
+      $layouts[$i]['regions'][$key]['exists'] = 1;
+    }
+  }
+
+  foreach($layouts as $i => $layout ) {
+    // Set required for builder class
+    foreach($layouts[$i]['regions'] as $key => $region) {
+      // Remove deleted from Theme info regions but not added BLOCKS
+      if (!isset($layouts[$i]['regions'][$key]['exists']) && !isset($layouts[$i]['regions'][$key]['settings']['block_id']) || (isset($layouts[$i]['regions'][$key]['settings']['block_id']) && $layouts[$i]['regions'][$key]['row_id'] == 'id-0')) {
+        unset($layouts[$i]['regions'][$key]);
+      }
+      elseif(empty($layouts[$i]['regions'][$key]['attributes']['class'])) {
+        $layouts[$i]['regions'][$key]['attributes']['class'][] = 'col-md-12';
+      }
+    }
+  }
+
+  module_load_include('inc', 'block', 'block.admin');
+  $blocks = block_admin_display_prepare_blocks($current_theme);
+  usort($blocks, '_sort_blocks');
+
+  drupal_add_js(array('nikadevs_cms' => array('layouts' => $layouts)), 'setting');
+
+  $form['options']['nd_layout_builder'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Layout Builder'),
+  );
+  $form['options']['nd_layout_builder']['builder'] = array(
+    '#attached' => array(
+      'js' => array(drupal_get_path('module', 'nikadevs_cms') . '/layout_builder/nikadevs-cms-layout-builder.js'),
+      'css' => array(
+          drupal_get_path('module', 'nikadevs_cms') . '/layout_builder/nikadevs-cms-layout-builder.css',
+          drupal_get_path('module', 'nikadevs_cms') . '/layout_builder/nikadevs-cms-layout-builder-min-bootstrap.css'
+        )
+      ),
+    '#markup' => theme('nikadevs_cms_layout_builder', array('layouts' => $layouts, 'blocks' => $blocks))
+  );
+  return $form;
+}
+
+function _sort_blocks($a, $b) {
+  return $a['info'] > $b['info'];
+}
+
+function nikadevs_cms_page_layout($vars = array()) {
+  $layout = _nikadevs_cms_active_layout($vars);
+  return theme('nikadevs_cms_layout_page', array('vars' => $vars, 'layout' => $layout));
+}
+
+function nikadevs_cms_layout_builder_update() {
+  $current_theme = variable_get('theme_default', 'none');
+  $layouts = variable_get('nikadevs_cms_layout_' . $current_theme, array());
+
+  if(isset($_POST['op']) && $_POST['op'] == 'delete') {
+    unset($layouts[$_POST['id']]);
+  }
+  else {
+    $layouts[$_POST['id']] = $_POST['layout'];
+  }
+
+  variable_set('nikadevs_cms_layout_' . $current_theme, $layouts);
+  drupal_exit();
+ }
+
+/**
+ * Implements hook_form_alter().
+ *
+ */
+function nikadevs_cms_form_alter(&$form, &$form_state, &$form_id) {
+  if($form_id == 'block_admin_display_form') {
+    drupal_add_library('system', 'ui.dialog');
+    // Get current settings
+    $current_theme = variable_get('theme_default', 'none');
+    $settings = variable_get('nikadevs_cms_block_settings_' . $current_theme, array());
+    drupal_add_js(array('nikadevs_cms' => array('block_settings' => $settings)), 'setting');
+    // Add icons
+    drupal_add_css('//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css', 'external');
+    $form['nikadevs_cms_block_settings'] = array(
+      '#attached' => array(
+        'js' => array(drupal_get_path('module', 'nikadevs_cms') . '/block_settings/nikadevs-cms-block-settings.js'),
+        'css' => array(
+            drupal_get_path('module', 'nikadevs_cms') . '/layout_builder/nikadevs-cms-layout-builder-min-bootstrap.css',
+            drupal_get_path('module', 'nikadevs_cms') . '/block_settings/nikadevs-cms-block-settings.css',
+          )
+        ),
+      '#markup' => theme('nikadevs_cms_block_settings')
+    );
+  }
+}
+
+function nikadevs_cms_block_settings_update() {
+  $block_settings = $_GET['block_settings'];
+  $settings = variable_get('nikadevs_cms_block_settings_' . $block_settings['theme'], array());
+  $settings[$block_settings['block_id']] = $block_settings;
+  variable_set('nikadevs_cms_block_settings_' . $block_settings['theme'], $settings);
+  drupal_json_output($settings);
+  drupal_exit();
+}
+
+function nikadevs_cms_preprocess_block(&$variables) {
+  $current_theme = variable_get('theme_default', 'none');
+  $settings = variable_get('nikadevs_cms_block_settings_' . $current_theme, array());
+
+  $variables['tag'] = 'div';
+  $id = $variables['block']->module . '_' . $variables['block']->delta;
+  if(isset($settings[$id])) {
+    if(isset($settings[$id]['animation']) && !empty($settings[$id]['animation'])) {
+      $variables['attributes_array']['data-animation'] = $settings[$id]['animation'];
+      if(isset($settings[$id]['delay']) && !empty($settings[$id]['delay'])) {
+        $variables['attributes_array']['data-animation-delay'] = $settings[$id]['delay'];
+      }
+    }
+    $variables['classes_array'][] = isset($settings[$id]['class']) ? $settings[$id]['class'] : '';
+    $variables['tag'] = isset($settings[$id]['tag']) ? $settings[$id]['tag'] : 'div';
+  }
+  
+}
+
+/**
+ * Implements hook_menu().
+ *
+ * Admin menu item and ajax callbacks to save the data being edited
+ */
+function nikadevs_cms_menu() {
+  $items = array();
+
+  $items['admin/config/cms'] = array(
+    'title' => t('Manage CMS'),
+    'page callback' => 'nikadevs_cms_admin',
+    'access arguments' => array('use nikadevs cms'),
+  );
+  $items['nikadevs_cms/layout_builder/update'] = array(
+    'page callback' => 'nikadevs_cms_layout_builder_update',
+    'access arguments' => array('use nikadevs cms'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['nikadevs_cms/block_settings/update'] = array(
+    'page callback' => 'nikadevs_cms_block_settings_update',
+    'access arguments' => array('use nikadevs cms'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['nikadevs_cms/support'] = array(
+    'page callback' => 'nikadevs_cms_support',
+    'access arguments' => array('use nikadevs cms'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function nikadevs_cms_admin() {
+  return t('Welcome to NikaDevs Admin pages.');
+}
+
+function nikadevs_cms_support() {
+  $json = json_decode($_POST['data']);  
+  $issue = $json[0]->Issue;
+  // Remove information about base64 string
+  $data = explode(',', $json[1]);
+  $attachment = $data[1];
+  module_load_include('inc', 'nikadevs_cms', 'support/inc/nikadevs_cms_attachment_mail');
+  $from = variable_get('site_mail', theme_get_setting('email', variable_get('theme_default', 'none')));
+  $body = "Issue: $issue\n\nTheme: " . variable_get('theme_default', 'none');
+  $email = new AttachmentEmail('support@nikadevs.com', $from, 'Support request', $body, $attachment);
+  $email->send();
+}
+
+/**
+ * Implements hook_permission().
+ */
+function nikadevs_cms_permission() {
+  return array(
+    'use nikadevs cms' => array(
+      'title' => t('Use NikaDevs functions'),
+      'description' => t('Use the Layout Builder features and other.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function nikadevs_cms_block_info() {
+  $blocks = array();
+
+  if (module_exists('contact')) {
+    $blocks['contact_form'] = array(
+      'info' => t('Contact form'),
+      'cache' => DRUPAL_NO_CACHE,
+    );
+  }
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function nikadevs_cms_block_view($delta = '') {
+  $block = array();
+  switch ($delta) {
+    case 'contact_form':
+      if (user_access('access site-wide contact form') && module_exists('contact')) {
+        if (!flood_is_allowed('contact', variable_get('contact_hourly_threshold', 3))) {
+          $content = t("You cannot send more than %number messages per hour. Please try again later.", array('%number' => variable_get('contact_hourly_threshold', 3)));
+        }
+        else {
+          module_load_include('inc', 'contact', 'contact.pages');
+          $content = drupal_get_form('contact_site_form');
+        }
+        $block['subject'] = t('Contact Form');
+        $block['content']['form'] = $content;
+        return $block;
+      }
+      break;
+  }
+}
+
+/**
+ * Return array with region ID and his HTML class name
+*/
+function nikadevs_cms_theme() {
+ return array(
+  'nikadevs_cms_layout_builder' => array(
+    'variables' => array(
+      'layouts' => NULL,
+      'blocks' => NULL
+    ),
+    'template' => 'nikadevs-cms-layout-builder',
+    'path' => drupal_get_path('module', 'nikadevs_cms') . '/layout_builder'
+  ),
+  'nikadevs_cms_block_settings' => array(
+    'template' => 'nikadevs-cms-block-settings',
+    'path' => drupal_get_path('module', 'nikadevs_cms') . '/block_settings'
+  ),
+  'nikadevs_cms_layout_page' => array(
+    'variables' => array(
+      'vars' => NULL,
+      'layout' => ''
+    ),
+    'template' => 'nikadevs-cms-layout-page',
+    'path' => drupal_get_path('module', 'nikadevs_cms') . '/layout_builder'
+  ),
+  'nikadevs_cms_shortcode_pricing_table_col' => array(
+    'variables' => array('attrs' => array(), 'text' => ''),
+    'file' => 'nikadevs_cms_shortcodes.inc',
+    'path' => drupal_get_path('module', 'nikadevs_cms') . '/shortcodes'
+  ));
+}
+
+/**
+ * Implementation of hook_filter_info().
+ */
+function nikadevs_cms_filter_info() {
+  $filters['shortcode_dynamic'] = array(
+    'title' => t('Shortcodes Dynamic'),
+    'description' => t('Alias of Shortcodes with disabled CACHE. Use for dynamic content such as VIEW.'),
+    'process callback' => '_shortcode_process',
+    'settings callback' => '_shortcode_settings_form',
+    'tips callback' => '_shortcode_filter_tips',
+    'cache' => FALSE,
+  );
+  return $filters;
+}
+
+/**
+ * Implementation of hook_shortcode_info().
+ * Using the same formatting as hook_filter_info()
+ */
+function nikadevs_cms_shortcode_info() {
+  $shortcodes['quote'] = array(
+    'title' => t('Quote col'),
+    'description' => t('Replace the given text formatted like as a quote.'),
+    'process callback' => 'nikadevs_cms_shortcode_quote',
+    'tips callback' => 'nikadevs_cms_shortcode_quote_tip',
+  );
+  $shortcodes['progress'] = array(
+    'title' => t('Progress Line'),
+    'description' => t('Progress line with title and percents.'),
+    'process callback' => 'nikadevs_cms_shortcode_progress',
+    'tips callback' => 'nikadevs_cms_shortcode_progress_tip',
+  );
+  $shortcodes['accordions'] = array(
+    'title' => t('Accordions'),
+    'description' => t('Animated Accordions wrapper.'),
+    'process callback' => 'nikadevs_cms_shortcode_accordions',
+    'tips callback' => 'nikadevs_cms_shortcode_accordions_tip',
+  );
+  $shortcodes['accordion'] = array(
+    'title' => t('Accordion item'),
+    'description' => t('Accordion item.'),
+    'process callback' => 'nikadevs_cms_shortcode_accordion',
+  );
+  $shortcodes['delimiter'] = array(
+    'title' => t('Delimiter'),
+    'description' => t('Full Width delimiter.'),
+    'process callback' => 'nikadevs_cms_shortcode_delimiter',
+    'tips callback' => 'nikadevs_cms_shortcode_delimiter_tip',
+  );
+  $shortcodes['spacer'] = array(
+    'title' => t('Spacer'),
+    'description' => t('Spacer without any content.'),
+    'process callback' => 'nikadevs_cms_shortcode_spacer',
+    'tips callback' => 'nikadevs_cms_shortcode_spacer_tip',
+  );
+  $shortcodes['row'] = array(
+    'title' => t('Row container with cols'),
+    'description' => t('Container for cols.'),
+    'process callback' => 'nikadevs_cms_shortcode_row',
+    'tips callback' => 'nikadevs_cms_shortcode_row_tip',
+  );
+  $shortcodes['col'] = array(
+    'title' => t('Column'),
+    'description' => t('Column with size settings'),
+    'process callback' => 'nikadevs_cms_shortcode_col',
+  );
+  $shortcodes['message'] = array(
+    'title' => t('Message'),
+    'description' => t('Dismissable Message.'),
+    'process callback' => 'nikadevs_cms_shortcode_message',
+    'tips callback' => 'nikadevs_cms_shortcode_message_tip',
+  );
+  $shortcodes['tabs'] = array(
+    'title' => t('Tabs'),
+    'description' => t('jQuery Tabs.'),
+    'process callback' => 'nikadevs_cms_shortcode_tabs',
+    'tips callback' => 'nikadevs_cms_shortcode_tabs_tip',
+  );
+  $shortcodes['tab'] = array(
+    'title' => t('Tab'),
+    'description' => t('Tab content.'),
+    'process callback' => 'nikadevs_cms_shortcode_tab',
+  );
+  $shortcodes['button'] = array(
+    'title' => t('Button link'),
+    'description' => t('Button linked to any page or content.'),
+    'process callback' => 'nikadevs_cms_shortcode_button',
+    'tips callback' => 'nikadevs_cms_shortcode_button_tip',
+  );
+  $shortcodes['call_to_action'] = array(
+    'title' => t('Call to Action'),
+    'description' => t('Text with button link'),
+    'process callback' => 'nikadevs_cms_shortcode_calltoaction',
+    'tips callback' => 'nikadevs_cms_shortcode_calltoaction_tip',
+  );
+  $shortcodes['icon_box'] = array(
+    'title' => t('Icon Box'),
+    'description' => t('Icon box with text.'),
+    'process callback' => 'nikadevs_cms_shortcode_iconbox',
+    'tips callback' => 'nikadevs_cms_shortcode_iconbox_tip',
+  );
+  $shortcodes['pricing_table'] = array(
+    'title' => t('Pricing Table'),
+    'description' => t('Responsive Pricing Table.'),
+    'process callback' => 'nikadevs_cms_shortcode_pricing_table',
+    'tips callback' => 'nikadevs_cms_shortcode_pricing_table_tip',
+  );
+  $shortcodes['pricing_table_col'] = array(
+    'title' => t('Pricing Table Column'),
+    'description' => t('Pricing Table Column.'),
+    'process callback' => 'nikadevs_cms_shortcode_pricing_table_col',
+  );
+  $shortcodes['pricing_table_row'] = array(
+    'title' => t('Pricing Table Row'),
+    'description' => t('Pricing Table Row.'),
+    'process callback' => 'nikadevs_cms_shortcode_pricing_table_row',
+  );
+  $shortcodes['dropcap'] = array(
+    'title' => t('Dropcap'),
+    'description' => t('Wrap symbol in dropcap.'),
+    'process callback' => 'nikadevs_cms_shortcode_dropcap',
+    'tips callback' => 'nikadevs_cms_shortcode_dropcap_tip',
+  );
+  $shortcodes['view'] = array(
+    'title' => t('View'),
+    'description' => t('Embed content - rendered View. To by dynamical should be used under '),
+    'process callback' => 'nikadevs_cms_shortcode_view',
+    'tips callback' => 'nikadevs_cms_shortcode_view_tip',
+  );
+  $shortcodes['block'] = array(
+    'title' => t('Block'),
+    'description' => t('Render block.'),
+    'process callback' => 'nikadevs_cms_shortcode_block',
+    'tips callback' => 'nikadevs_cms_shortcode_block_tip',
+  );
+  $shortcodes['featured_boxes'] = array(
+    'title' => t('Featured Boxes'),
+    'description' => t('Animated on mouse hover event boxes with icon and text.'),
+    'process callback' => 'nikadevs_cms_shortcode_featured_boxes',
+    'tips callback' => 'nikadevs_cms_shortcode_featured_boxes_tip',
+  );
+  $shortcodes['featured_box'] = array(
+    'title' => t('Featured Box item'),
+    'process callback' => 'nikadevs_cms_shortcode_featured_box',
+  );
+  $shortcodes['video'] = array(
+    'title' => t('Video Iframe'),
+    'description' => t('Iframe adaptive video.'),
+    'process callback' => 'nikadevs_cms_shortcode_video',
+    'tips callback' => 'nikadevs_cms_shortcode_video_tip',
+  );
+  $shortcodes['shape_box'] = array(
+    'title' => t('Shape Box'),
+    'description' => t('Animated on mouse hover shape boxes with image, title and text.'),
+    'process callback' => 'nikadevs_cms_shortcode_shape_box',
+    'tips callback' => 'nikadevs_cms_shortcode_shape_box_tip',
+  );
+  return $shortcodes;
+}
