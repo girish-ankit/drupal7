@@ -1,0 +1,7 @@
+;$Id$
+name = Custom Cache
+description = This module is created to store data in cache.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function custom_cache_install() {
+  drupal_install_schema('cache_custom');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function custom_cache_uninstall() {
+  drupal_uninstall_schema('cache_custom');
+}
+
+
+/**
+* Implementation of hook_schema().
+*/
+
+function custom_cache_schema() {
+  $schema = array();
+  $schema['cache_custom'] = drupal_get_schema_unprocessed('system', 'cache');
+  return $schema;
+}
