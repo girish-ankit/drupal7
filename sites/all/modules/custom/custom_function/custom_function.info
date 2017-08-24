@@ -1,0 +1,7 @@
+;$Id$
+name = Custom Function
+description = This module is created for user data capture.
+package = Custom Module
+core = 7.x
+version = "7.x-1.1"
+project = "ankit custom module"

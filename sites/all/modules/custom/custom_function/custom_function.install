@@ -1,0 +1,150 @@
+<?php
+
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+
+function custom_function_install()
+{
+
+    drupal_install_schema('custom_contact_document');
+}
+
+function custom_function_uninstall()
+{
+
+    drupal_uninstall_schema('custom_contact_document');
+}
+
+function custom_function_schema()
+{
+
+    $schema['custom_contact_document'] = array(
+        'description' => 'The table for storing the  data.',
+        'fields' => array(
+            'id' => array(
+                'description' => 'The primary identifier .',
+                'type' => 'serial',
+                'not null' => TRUE,
+                'unsigned' => TRUE
+            ),
+
+            'nid' => array(
+                'description' => 'Node id of contact form',
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'sid' => array(
+                'description' => 'Form submit id',
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'fid' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'type' => array(
+                'description' => 'document type',
+                'type' => 'varchar',
+                'length' => 55,
+                'not null' => TRUE,
+                'default' => ''
+            ),
+
+            'created' => array(
+                'description' => 'The Unix timestamp when the node was created.',
+                'type' => 'int',
+                'not null' => TRUE,
+                'default' => 0
+            ),
+            'changed' => array(
+                'description' => 'The Unix timestamp when the node was most recently saved.',
+                'type' => 'int',
+                'not null' => TRUE,
+                'default' => 0
+            )
+
+
+
+        ),
+        'primary key' => array(
+            'id'
+        )
+    );
+    return $schema;
+}
+
+/**
+ * Create new database table {custom_contact_document}.
+ */
+function custom_function_update_7101()
+{
+     $schema['custom_contact_document'] = array(
+        'description' => 'The table for storing the  data.',
+        'fields' => array(
+            'id' => array(
+                'description' => 'The primary identifier .',
+                'type' => 'serial',
+                'not null' => TRUE,
+                'unsigned' => TRUE
+            ),
+
+            'nid' => array(
+                'description' => 'Node id of contact form',
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'sid' => array(
+                'description' => 'Form submit id',
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'fid' => array(
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => FALSE,
+                'default' => NULL
+            ),
+            'type' => array(
+                'description' => 'document type',
+                'type' => 'varchar',
+                'length' => 55,
+                'not null' => TRUE,
+                'default' => ''
+            ),
+
+            'created' => array(
+                'description' => 'The Unix timestamp when the node was created.',
+                'type' => 'int',
+                'not null' => TRUE,
+                'default' => 0
+            ),
+            'changed' => array(
+                'description' => 'The Unix timestamp when the node was most recently saved.',
+                'type' => 'int',
+                'not null' => TRUE,
+                'default' => 0
+            )
+
+
+
+        ),
+        'primary key' => array(
+            'id'
+        )
+    );
+    db_create_table('custom_contact_document', $schema['custom_contact_document']);
+}
