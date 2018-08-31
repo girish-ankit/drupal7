@@ -1,7 +1,0 @@
-;$Id$
-name = Menu Tab
-description = This module is created to show menu tab functionality.
-package = Custom Module
-core = 7.x
-version = "7.x-1.1"
-project = "ankit custom module"

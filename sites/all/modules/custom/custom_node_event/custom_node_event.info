@@ -1,7 +1,0 @@
-;$Id$
-name = Custom node event
-description = This module is created to fire events on node insert, update, delete.
-package = Custom Module
-core = 7.x
-version = "7.x-1.1"
-

@@ -1,7 +1,0 @@
-;$Id$
-name = Custom block form
-description = This module is created for testing.
-package = Custom Module
-core = 7.x
-version = "7.x-1.1"
-project = "ankit custom module"

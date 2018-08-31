@@ -1,8 +1,0 @@
-;$Id$
-name = Custom Query caching
-description = This module is created for demo of drupal 7 query caching.
-package = Custom Module
-core = 7.x
-version = "7.x-1.1"
-project = "ankit custom module"
-

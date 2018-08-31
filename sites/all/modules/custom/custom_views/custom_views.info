@@ -1,7 +1,0 @@
-;$Id$
-name = Custom Views Operation
-description = This module is developed for view data manipulation.
-package = Custom Module
-core = 7.x
-version = "7.x-1.2"
-project = "ankit custom module"
